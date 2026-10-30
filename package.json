@@ -1,0 +1,30 @@
+{
+  "name": "octadezx-mcp",
+  "version": "1.0.0",
+  "description": "Official Model Context Protocol (MCP) client and SDK for OctaDezx - Autonomous Customer Care, Voice Calls & Self-Filling CRM",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/octadezx/octadezx-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "octadezx",
+    "ai-agent",
+    "customer-care",
+    "claude-mcp",
+    "voice-ai",
+    "crm"
+  ],
+  "author": "OctaDezx <support@octadezx.com> (https://octadezx.com)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://octadezx.com/contact"
+  },
+  "homepage": "https://octadezx.com/ai-agent-mcp-server"
+}
