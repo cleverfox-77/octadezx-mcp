@@ -1,0 +1,21 @@
+# Smithery.ai configuration https://smithery.ai/docs/config#smitheryyaml
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      endpoint:
+        type: string
+        default: "https://octadezx.com/mcp"
+        description: "OctaDezx hosted MCP endpoint"
+  commandFunction:
+    |-
+    (config) => ({
+      "command": "node",
+      "args": [
+        "server.js"
+      ],
+      "env": {
+        "OCTADEZX_ENDPOINT": config?.endpoint || "https://octadezx.com/mcp"
+      }
+    })
