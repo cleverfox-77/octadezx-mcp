@@ -1,12 +1,15 @@
 /**
- * Automated Verification Test for OctaDezx MCP Server
- * Validates protocol compliance, tools/list, and real tools/call executions.
+ * Quick CLI & Stdio Smoke Test for OctaDezx MCP Server (v1.2.0)
+ * Validates protocol compliance, all 9 registered tools, and standalone offline tools.
  */
 import { spawn } from "node:child_process";
 
 async function runProtocolTest() {
-  console.log("=== Starting OctaDezx MCP Server Protocol Test ===");
-  const proc = spawn("node", ["server.js"], { stdio: ["pipe", "pipe", "inherit"] });
+  console.log("=== Starting OctaDezx MCP Server Protocol Smoke Test ===");
+  const proc = spawn("node", ["server.js"], {
+    stdio: ["pipe", "pipe", "inherit"],
+    env: { ...process.env, OCTADEZX_API_KEY: "" }
+  });
 
   let buffer = "";
   const responses = [];
@@ -24,65 +27,67 @@ async function runProtocolTest() {
     }
   });
 
-  function sendReq(req) {
-    proc.stdin.write(JSON.stringify(req) + "\n");
-  }
+  const sendReq = (req) => proc.stdin.write(JSON.stringify(req) + "\n");
 
-  // 1. Initialize
   sendReq({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
-  await new Promise(r => setTimeout(r, 200));
-
-  // 2. Tools List
   sendReq({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
-  await new Promise(r => setTimeout(r, 200));
-
-  // 3. Call octadezx_list_conversations
   sendReq({
     jsonrpc: "2.0",
     id: 3,
     method: "tools/call",
-    params: { name: "octadezx_list_conversations", arguments: { status: "open", limit: 5 } }
+    params: {
+      name: "audit_knowledge_base",
+      arguments: {
+        content: "# Refund Policy\nItems qualify for a 14-day return. Contact support@example.com for help."
+      }
+    }
   });
-  await new Promise(r => setTimeout(r, 200));
-
-  // 4. Call octadezx_verify_order
   sendReq({
     jsonrpc: "2.0",
     id: 4,
     method: "tools/call",
-    params: { name: "octadezx_verify_order", arguments: { orderId: "OD-8842" } }
+    params: {
+      name: "verify_reply_safety",
+      arguments: {
+        candidateReply: "Your order #OD-8842 total is $29.00 USD.",
+        groundTruth: { customerOrderIds: ["OD-8842"], order: { id: "OD-8842", total: 29.0 } }
+      }
+    }
   });
-  await new Promise(r => setTimeout(r, 200));
-
-  // 5. Call octadezx_trigger_voice_call
   sendReq({
     jsonrpc: "2.0",
     id: 5,
     method: "tools/call",
-    params: { name: "octadezx_trigger_voice_call", arguments: { phoneNumber: "+15551234567", reason: "Follow-up customer inquiry" } }
+    params: {
+      name: "plan_multistep_inquiry",
+      arguments: { message: "Check order #OD-8842 and book a haircut tomorrow afternoon." }
+    }
   });
-  await new Promise(r => setTimeout(r, 300));
 
+  const deadline = Date.now() + 3000;
+  while (responses.length < 5 && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
   proc.kill();
 
-  console.log(`Received ${responses.length} valid JSON-RPC responses from server.js:`);
-  for (const resp of responses) {
-    console.log(`[Response #${resp.id}]`, JSON.stringify(resp.result || resp.error, null, 2));
-  }
+  console.log(`Received ${responses.length} valid JSON-RPC responses from server.js`);
 
-  const hasInit = responses.some(r => r.id === 1 && r.result?.serverInfo?.name === "octadezx-mcp-server");
-  const hasTools = responses.some(r => r.id === 2 && Array.isArray(r.result?.tools) && r.result.tools.length === 5);
-  const hasConvCall = responses.some(r => r.id === 3 && r.result?.content?.[0]?.text?.includes("conv_wa_9841"));
-  const hasOrderCall = responses.some(r => r.id === 4 && r.result?.content?.[0]?.text?.includes("OD-8842"));
-  const hasVoiceCall = responses.some(r => r.id === 5 && r.result?.content?.[0]?.text?.includes("webrtc_barge_in"));
+  const hasInit = responses.some((r) => r.id === 1 && r.result?.serverInfo?.name === "octadezx-mcp-server");
+  const hasTools = responses.some((r) => r.id === 2 && Array.isArray(r.result?.tools) && r.result.tools.length === 9);
+  const hasAudit = responses.some((r) => r.id === 3 && r.result?.content?.[0]?.text?.includes("local_deterministic"));
+  const hasSafety = responses.some((r) => r.id === 4 && r.result?.content?.[0]?.text?.includes('"safe": true'));
+  const hasPlan = responses.some((r) => r.id === 5 && r.result?.content?.[0]?.text?.includes("appointment_booking"));
 
-  if (hasInit && hasTools && hasConvCall && hasOrderCall && hasVoiceCall) {
-    console.log("\n✅ ALL 5 VERIFICATION CHECKS PASSED!");
+  if (hasInit && hasTools && hasAudit && hasSafety && hasPlan) {
+    console.log("ALL 5 SMOKE CHECKS PASSED!");
     process.exit(0);
   } else {
-    console.error("\n❌ Test failed: Some expected tool execution outputs were missing.");
+    console.error("Smoke test failed: unexpected output", responses);
     process.exit(1);
   }
 }
 
-runProtocolTest().catch(console.error);
+runProtocolTest().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

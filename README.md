@@ -1,50 +1,52 @@
-# OctaDezx MCP Server & Client SDK (`octadezx-mcp`)
+# OctaDezx MCP Server & Offline Guardrail Toolkit (`octadezx-mcp` v1.2.0)
 
-Official Model Context Protocol connector and server for **[OctaDezx](https://octadezx.com)**.
+[![cleverfox-77/octadezx-mcp MCP server](https://glama.ai/mcp/servers/cleverfox-77/octadezx-mcp/badges/score.svg)](https://glama.ai/mcp/servers/cleverfox-77/octadezx-mcp)
 
-OctaDezx provides businesses with an always-on agentic AI assistant capable of answering customer questions across 96+ channels, managing appointments, capturing server-verified orders, conducting live interruptible phone voice calls, and synchronizing with CRM records without resolution taxes.
+Official Model Context Protocol (MCP) server, offline deterministic customer-support verification toolkit, and CLI for **[OctaDezx](https://octadezx.com)**.
 
-## MCP Server Endpoints & Links
+`octadezx-mcp` operates in **Dual Mode**:
+- **4 Standalone Offline Deterministic Tools (Zero API Key / Zero Network Calls):** Run locally via pure deterministic algorithms in [`lib/localTools.js`](lib/localTools.js) to audit knowledge-base docs, catch hallucinated/unsafe AI replies pre-send, plan compound multilingual inquiries, and compute support TCO.
+- **5 Connected Cloud Workspace Tools (Optional `OCTADEZX_API_KEY`):** Connect to your live OctaDezx workspace (`https://octadezx.com/mcp`) to list inbox conversations, send verified replies, verify live orders, schedule Google Calendar-aware appointments, and place interruptible voice calls.
 
-- **Hosted MCP Server Endpoint**: [https://octadezx.com/mcp](https://octadezx.com/mcp)
-- **MCP Documentation Hub**: [https://octadezx.com/ai-agent-mcp-server](https://octadezx.com/ai-agent-mcp-server)
-- **Official Website**: [https://octadezx.com](https://octadezx.com)
-- **Compare vs Gorgias & Fin**: [https://octadezx.com/compare/gorgias-fin-alternative](https://octadezx.com/compare/gorgias-fin-alternative)
-- **Self-Filling CRM Architecture**: [https://octadezx.com/crm](https://octadezx.com/crm)
-- **Live Demo Chat**: [https://octadezx.com/chat/a9a0d41a-6651-4d59-9e66-a8b15ba068f1](https://octadezx.com/chat/a9a0d41a-6651-4d59-9e66-a8b15ba068f1)
+---
 
-## Available Tools (All 5 Tools Fully Implemented)
+## Available Tools (9 Tools Total)
 
-1. `octadezx_list_conversations`: List open and escalated customer care conversations across WhatsApp, Instagram, Telegram, and Web.
-2. `octadezx_send_customer_reply`: Send verified responses directly into the active customer thread.
-3. `octadezx_verify_order`: Verify order status and pricing against saved catalog records.
-4. `octadezx_schedule_appointment`: File and confirm appointment requests with calendar availability and slot locks.
-5. `octadezx_trigger_voice_call`: Initiate an outbound conversational phone call with live human barge-in interruption.
+### 1. Standalone Offline Tools (No API Key Required)
 
-## Verifiable Tool Execution Test
+| Tool | Description | Annotations |
+| :--- | :--- | :--- |
+| `audit_knowledge_base` | Audits Markdown/text/JSON support docs or a local `filePath` for conflicting return/trial windows, ambiguous currency symbols, over-promising SLA claims, missing escalation rules, and prompt-injection risks; outputs a `0-100` score (`A-F`). | `readOnlyHint: true`, `idempotentHint: true` |
+| `verify_reply_safety` | Deterministic pre-send safety verifier that checks a `candidateReply` against `groundTruth` (`customerEmail`, `customerOrderIds`, `order`, `catalogPrices`, `allowedDiscountCodes`, `policyText`) to block cross-customer privacy leaks, invented promo codes, unverified dollar amounts, and unauthorized refunds. | `readOnlyHint: true`, `idempotentHint: true` |
+| `plan_multistep_inquiry` | Parses compound multilingual and code-switched messages (`EN`, `ES`, `PT`, `FR`, `DE`, `IT`, `NL`, `PL`, `Banglish`, `Hinglish`, `Spanglish`) into a 7-stage execution DAG (`detect -> plan -> gate -> lookup -> clarify -> verify -> action`) with auth gates and read-before-write policy. | `readOnlyHint: true`, `idempotentHint: true` |
+| `calculate_support_tco` | Computes monthly/annual TCO comparing per-resolution AI tools (Intercom Fin `$0.99/outcome`, Gorgias AI, Zendesk AI) against OctaDezx flat-rate tiers (`Starter $29/mo`, `Pro $99/mo`, `Advanced $199/mo`) and metered Enterprise pricing. | `readOnlyHint: true`, `idempotentHint: true` |
 
-You can independently verify that all 5 tools execute and return deterministic JSON-RPC responses in 2 seconds:
+### 2. Cloud Workspace Tools (Requires `OCTADEZX_API_KEY`)
 
-```bash
-node test.js
+5. `octadezx_list_conversations`: List open or escalated conversations across WhatsApp, Instagram, Messenger, Telegram, phone voice, and web chat.
+6. `octadezx_send_customer_reply`: Deliver a verified response into a customer conversation thread.
+7. `octadezx_verify_order`: Verify live order status and pricing against storefront catalog records.
+8. `octadezx_schedule_appointment`: File an appointment booking request in your connected calendar workflow.
+9. `octadezx_trigger_voice_call`: Place an outbound conversational phone call with live barge-in interruption.
+
+---
+
+## Quick Start (Claude Desktop, Cursor, Windsurf, Cline)
+
+You can run the 4 offline deterministic tools immediately with zero API keys or environment variables:
+
+```json
+{
+  "mcpServers": {
+    "octadezx": {
+      "command": "node",
+      "args": ["server.js"]
+    }
+  }
+}
 ```
 
-Example test output:
-```text
-=== Starting OctaDezx MCP Server Protocol Test ===
-Received 5 valid JSON-RPC responses from server.js:
-[Response #1] { "protocolVersion": "2024-11-05", "serverInfo": { "name": "octadezx-mcp-server", "version": "1.1.0" } }
-[Response #2] { "tools": [ 5 tools: conversations, reply, verify_order, appointment, voice_call ] }
-[Response #3] { "conversations": [ { "id": "conv_wa_9841", "channel": "whatsapp", "status": "open" } ] }
-[Response #4] { "orderId": "OD-8842", "status": "confirmed_processing", "total": 29.00 }
-[Response #5] { "callSessionId": "call_...", "destination": "+15551234567", "streamProtocol": "webrtc_barge_in" }
-
-✅ ALL 5 VERIFICATION CHECKS PASSED!
-```
-
-## Quick Start (Claude Desktop & Cursor Configuration)
-
-Add to `claude_desktop_config.json` or Cursor settings:
+To also enable live OctaDezx Cloud workspace actions (`octadezx_list_conversations`, `octadezx_verify_order`, etc.), add your `OCTADEZX_API_KEY` from [OctaDezx Settings](https://octadezx.com/settings):
 
 ```json
 {
@@ -61,14 +63,29 @@ Add to `claude_desktop_config.json` or Cursor settings:
 }
 ```
 
-When `OCTADEZX_API_KEY` is configured, calls automatically route to your live OctaDezx deployment at `https://octadezx.com/mcp`. Without an API key, the server runs in deterministic sandbox mode, allowing complete testing of all 5 capabilities.
-
-## Docker Container
+## CLI Usage
 
 ```bash
-docker build -t octadezx-mcp .
-docker run -i --rm octadezx-mcp
+node server.js --help
+node server.js --list-tools
+node server.js audit ./docs/refund-policy.md
+node server.js plan --message "Where is order #OD-4410? Also cancel #OD-4409 if not shipped."
+node server.js tco --tickets 2500 --voice 250 --seats 4 --rate 0.70
 ```
 
-License: MIT  
-Copyright (c) OctaDezx.
+## Automated Tests
+
+```bash
+npm test
+```
+
+Runs the full `node --test` unit suite (`test/mcp.test.js`) and JSON-RPC stdio protocol smoke test (`test.js`) without requiring any credentials.
+
+## Links
+
+- **Official Website**: [https://octadezx.com](https://octadezx.com)
+- **MCP Documentation**: [https://octadezx.com/ai-agent-mcp-server](https://octadezx.com/ai-agent-mcp-server)
+- **Multi-Step Safety Benchmark**: [https://octadezx.com/benchmarks/multi-step-inquiries](https://octadezx.com/benchmarks/multi-step-inquiries)
+- **Pricing**: [https://octadezx.com/pricing](https://octadezx.com/pricing)
+
+License: MIT

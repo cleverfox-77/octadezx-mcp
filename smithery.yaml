@@ -4,10 +4,14 @@ startCommand:
   configSchema:
     type: object
     properties:
+      octadezxApiKey:
+        type: string
+        default: ""
+        description: "Optional OctaDezx API key. Leave blank to run the 4 offline deterministic tools (audit_knowledge_base, verify_reply_safety, plan_multistep_inquiry, calculate_support_tco) locally with zero credentials."
       endpoint:
         type: string
         default: "https://octadezx.com/mcp"
-        description: "OctaDezx hosted MCP endpoint"
+        description: "OctaDezx hosted MCP endpoint for optional cloud workspace tools"
   commandFunction:
     |-
     (config) => ({
@@ -16,6 +20,7 @@ startCommand:
         "server.js"
       ],
       "env": {
+        ...(config?.octadezxApiKey ? { "OCTADEZX_API_KEY": config.octadezxApiKey } : {}),
         "OCTADEZX_ENDPOINT": config?.endpoint || "https://octadezx.com/mcp"
       }
     })
