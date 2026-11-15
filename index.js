@@ -1,5 +1,5 @@
 /**
- * OctaDezx Model Context Protocol (MCP) Client SDK (v1.2.0)
+ * OctaDezx Model Context Protocol (MCP) Client SDK (v1.2.1)
  * Exposes local deterministic offline tools and optional connected OctaDezx Cloud tools.
  */
 
@@ -55,7 +55,7 @@ export class OctadezxClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "OctaDezx-MCP-Client/1.2.0",
+          "User-Agent": "OctaDezx-MCP-Client/1.2.1",
           "Authorization": `Bearer ${this.apiKey}`
         },
         body: JSON.stringify(args),

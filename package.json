@@ -1,6 +1,6 @@
 {
   "name": "octadezx-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Dual-mode Enterprise Support MCP server & CLI: 4 offline deterministic tools (KB auditor, reply safety verifier, multilingual DAG planner, support TCO calculator) + optional OctaDezx Cloud workspace connector.",
   "type": "module",
   "main": "index.js",

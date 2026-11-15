@@ -1,5 +1,5 @@
 /**
- * Quick CLI & Stdio Smoke Test for OctaDezx MCP Server (v1.2.0)
+ * Quick CLI & Stdio Smoke Test for OctaDezx MCP Server (v1.2.1)
  * Validates protocol compliance, all 9 registered tools, and standalone offline tools.
  */
 import { spawn } from "node:child_process";

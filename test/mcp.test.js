@@ -139,7 +139,7 @@ test("MCP stdio server handles initialize, tools/list, and offline tools/call wi
   const tco = responses.find((r) => r.id === 3);
   const cloudWithoutKey = responses.find((r) => r.id === 4);
 
-  assert.equal(init?.result?.serverInfo?.version, "1.2.0");
+  assert.equal(init?.result?.serverInfo?.version, "1.2.1");
   assert.equal(list?.result?.tools?.length, 9);
   assert.equal(tco?.result?.isError, false);
   assert.ok(tco?.result?.content?.[0]?.text.includes("OctaDezx Starter"));

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * OctaDezx Model Context Protocol (MCP) Server & CLI Toolkit (v1.2.0)
+ * OctaDezx Model Context Protocol (MCP) Server & CLI Toolkit (v1.2.1)
  * Dual-mode architecture:
  *   - 4 standalone deterministic local tools (zero API key, zero network required)
  *   - 5 connected OctaDezx Cloud workspace tools (when OCTADEZX_API_KEY is configured)
@@ -19,28 +19,59 @@ import {
 } from "./index.js";
 
 export const SERVER_NAME = "octadezx-mcp-server";
-export const SERVER_VERSION = "1.2.0";
+export const SERVER_VERSION = "1.2.1";
 export const PROTOCOL_VERSION = "2024-11-05";
 
 export const TOOLS = [
   {
     name: "audit_knowledge_base",
-    description: "[Offline / No API Key] Deterministically audit Markdown, text, or JSON support docs for policy contradictions, conflicting time windows, currency ambiguity, missing escalation paths, and prompt-injection risks.",
-    annotations: { readOnlyHint: true, idempotentHint: true },
+    description:
+      "Deterministically audit support documentation before indexing it into a RAG or AI customer agent. Runs completely offline with zero network calls or API key required, checking one or more Markdown, plain-text, or JSON files for conflicting policy time windows, unqualified commitments, currency ambiguity, missing headings, missing human escalation contacts, and embedded prompt-injection patterns. Returns JSON with score (0-100), grade (A-F), findings[], extractedFacts, recommendations[], and mode ('local_deterministic').",
+    annotations: {
+      title: "Audit Knowledge Base",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        title: { type: "string", description: "Optional title when passing inline content" },
-        content: { type: "string", description: "Inline Markdown, text, or JSON documentation to audit" },
-        filePath: { type: "string", description: "Optional path to a local Markdown, text, or JSON file" },
+        title: {
+          type: "string",
+          minLength: 1,
+          default: "Inline Knowledge Base",
+          description: "Human-readable document title used in audit findings when supplying inline content."
+        },
+        content: {
+          type: "string",
+          minLength: 1,
+          description: "Inline Markdown, plain-text, or JSON policy documentation to audit. Provide content, filePath, or documents."
+        },
+        filePath: {
+          type: "string",
+          minLength: 1,
+          description: "Local filesystem path to a readable UTF-8 Markdown, text, or JSON file to audit."
+        },
         documents: {
           type: "array",
-          description: "Optional list of multiple documents to audit together for cross-document contradictions",
+          minItems: 1,
+          description: "Collection of multiple policy documents to audit together so cross-document contradictions (e.g., 14-day vs 30-day refunds) are detected.",
           items: {
             type: "object",
+            additionalProperties: false,
             properties: {
-              title: { type: "string" },
-              content: { type: "string" }
+              title: {
+                type: "string",
+                minLength: 1,
+                description: "Document title or filename shown in contradiction and risk findings."
+              },
+              content: {
+                type: "string",
+                minLength: 1,
+                description: "Full Markdown, plain-text, or JSON content of this document."
+              }
             },
             required: ["content"]
           }
@@ -50,26 +81,129 @@ export const TOOLS = [
   },
   {
     name: "verify_reply_safety",
-    description: "[Offline / No API Key] Pre-send deterministic safety and hallucination verifier for a candidate AI customer reply against ground-truth order, catalog, discount, email, and policy facts.",
-    annotations: { readOnlyHint: true, idempotentHint: true },
+    description:
+      "Pre-send deterministic safety and hallucination verifier for a draft AI customer support response. Runs completely offline without an API key, validating every email address, order ID, promo code, monetary figure, refund commitment, template placeholder, and punctuation rule against authoritative groundTruth records. Returns JSON with safe (boolean), riskLevel ('pass' | 'review' | 'block'), violationCount, violations[], and verifiedClaims[].",
+    annotations: {
+      title: "Verify Reply Safety",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        candidateReply: { type: "string", description: "Draft AI reply to verify before sending to a customer" },
-        strictStyle: { type: "boolean", description: "Flag em/en dashes when strict punctuation style is enabled" },
+        candidateReply: {
+          type: "string",
+          minLength: 1,
+          description: "Draft customer-facing AI response text to verify prior to delivery."
+        },
+        strictStyle: {
+          type: "boolean",
+          default: false,
+          description: "When true, flag em dashes and en dashes in candidateReply as low-severity style violations."
+        },
         groundTruth: {
           type: "object",
-          description: "Authoritative customer, order, catalog, discount, and policy facts",
+          additionalProperties: false,
+          description: "Authoritative customer, order, catalog, discount, and policy facts used to verify every claim in candidateReply.",
           properties: {
-            customerEmail: { type: "string" },
-            customerOrderIds: { type: "array", items: { type: "string" } },
-            verified: { type: "boolean" },
-            allowMutations: { type: "boolean" },
-            order: { type: "object" },
-            catalogPrices: { type: "object" },
-            allowedDiscountCodes: { type: "array", items: { type: "string" } },
-            allowedAmounts: { type: "array", items: { type: "number" } },
-            policyText: { type: "string" }
+            customerEmail: {
+              type: "string",
+              format: "email",
+              description: "Verified customer email address; mentioning any other email triggers a cross_customer_email_leak block."
+            },
+            allowedEmails: {
+              type: "array",
+              description: "Additional permitted emails (such as official company support addresses) allowed inside the reply.",
+              items: {
+                type: "string",
+                format: "email",
+                description: "Allowed contact email address."
+              }
+            },
+            customerOrderIds: {
+              type: "array",
+              description: "List of order identifiers belonging to the verified customer; referencing unlisted order IDs triggers a cross_customer_order_leak block.",
+              items: {
+                type: "string",
+                minLength: 1,
+                description: "Authorized customer order ID (for example, 'OD-1001')."
+              }
+            },
+            verified: {
+              type: "boolean",
+              default: true,
+              description: "Whether customer identity is verified; when false, claiming a refund was issued triggers unauthorized_refund_commitment."
+            },
+            allowMutations: {
+              type: "boolean",
+              default: true,
+              description: "When false, treat any claim of an executed refund or account mutation as a critical violation."
+            },
+            order: {
+              type: "object",
+              additionalProperties: false,
+              description: "Authoritative order object containing verified totals, currency, refundable status, and line items.",
+              properties: {
+                id: { type: "string", description: "Primary order ID." },
+                orderId: { type: "string", description: "Alternate order identifier field." },
+                total: { type: "number", minimum: 0, description: "Verified total order amount." },
+                subtotal: { type: "number", minimum: 0, description: "Verified pre-tax/shipping subtotal." },
+                shipping: { type: "number", minimum: 0, description: "Verified shipping fee." },
+                tax: { type: "number", minimum: 0, description: "Verified tax amount." },
+                refundAmount: { type: "number", minimum: 0, description: "Verified eligible or processed refund amount." },
+                amount: { type: "number", minimum: 0, description: "Generic verified order amount." },
+                currency: { type: "string", description: "ISO 4217 currency code (for example, 'USD')." },
+                status: { type: "string", description: "Current authoritative fulfillment or order status." },
+                refundable: { type: "boolean", description: "Whether this order is eligible for a refund." },
+                items: {
+                  type: "array",
+                  description: "Verified order line items whose unit prices are permitted in the reply.",
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      name: { type: "string", description: "Line item product name." },
+                      price: { type: "number", minimum: 0, description: "Authorized line item price." },
+                      unitPrice: { type: "number", minimum: 0, description: "Authorized single-unit price." }
+                    }
+                  }
+                }
+              }
+            },
+            catalogPrices: {
+              type: "object",
+              additionalProperties: {
+                type: "number",
+                minimum: 0,
+                description: "Authoritative catalog price in USD for the keyed SKU or product name."
+              },
+              description: "Dictionary mapping product SKUs or names to verified numeric catalog prices allowed in candidateReply."
+            },
+            allowedDiscountCodes: {
+              type: "array",
+              description: "Explicit allowlist of valid promo or voucher codes; any other promo code mentioned in candidateReply is flagged.",
+              items: {
+                type: "string",
+                minLength: 1,
+                description: "Valid promo/discount code (for example, 'WELCOME10')."
+              }
+            },
+            allowedAmounts: {
+              type: "array",
+              description: "Additional verified numeric monetary amounts permitted in candidateReply.",
+              items: {
+                type: "number",
+                minimum: 0,
+                description: "Permitted monetary value."
+              }
+            },
+            policyText: {
+              type: "string",
+              description: "Canonical policy text whose numeric amounts (such as restocking fees or free-shipping thresholds) are whitelisted."
+            }
           }
         }
       },
@@ -78,97 +212,282 @@ export const TOOLS = [
   },
   {
     name: "plan_multistep_inquiry",
-    description: "[Offline / No API Key] Decompose compound multilingual or code-switched (EN/ES/PT/FR/DE/IT/NL/PL/Banglish/Hinglish/Spanglish) customer messages into a 7-stage read-before-write DAG with auth gates.",
-    annotations: { readOnlyHint: true, idempotentHint: true },
+    description:
+      "Deterministically decompose a complex, multi-intent, or code-switched customer inquiry (supporting English, Spanish, Portuguese, French, German, Italian, Dutch, Polish, Banglish, Hinglish, and Spanglish) into a read-before-write 7-stage execution DAG (detect -> plan -> gate -> lookup -> clarify -> verify -> action). Runs completely offline with zero network calls or API key, extracting order IDs, emails, phones, and monetary figures while enforcing identity authentication and clarification gates before state mutations.",
+    annotations: {
+      title: "Plan Multi-Step Inquiry",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        message: { type: "string", description: "Raw customer inquiry text" },
-        localeHint: { type: "string", description: "Optional ISO language hint (e.g., en, es, fr)" },
-        hasAuthenticatedSession: { type: "boolean", description: "Whether customer identity is already verified" },
-        knownCustomerOrderIds: { type: "array", items: { type: "string" } }
+        message: {
+          type: "string",
+          minLength: 1,
+          description: "Raw incoming customer message text (single-language or code-switched, single or multi-intent)."
+        },
+        localeHint: {
+          type: "string",
+          default: "en",
+          enum: ["en", "es", "pt", "fr", "de", "it", "nl", "pl", "banglish", "hinglish"],
+          description: "Fallback ISO language or script hint when no non-English tokens match automatically."
+        },
+        hasAuthenticatedSession: {
+          type: "boolean",
+          default: false,
+          description: "Whether the customer has already completed identity verification for private order/account lookups or mutations."
+        },
+        knownCustomerOrderIds: {
+          type: "array",
+          description: "Previously retrieved order IDs on file for this customer so redundant order-number questions can be skipped.",
+          items: {
+            type: "string",
+            minLength: 1,
+            description: "Order identifier associated with the customer session."
+          }
+        }
       },
       required: ["message"]
     }
   },
   {
     name: "calculate_support_tco",
-    description: "[Offline / No API Key] Deterministic TCO and unit-economics calculator comparing per-resolution AI pricing (Intercom Fin $0.99/outcome, Gorgias AI, Zendesk AI) against flat-rate plans and Enterprise metered billing.",
-    annotations: { readOnlyHint: true, idempotentHint: true },
+    description:
+      "Deterministic total-cost-of-ownership (TCO) and unit-economics calculator comparing per-resolution AI support pricing (Intercom Fin at $0.99/resolution + seats, Gorgias AI automated interaction pricing, Zendesk AI) against flat-rate OctaDezx tiers (Starter $29/mo, Pro $99/mo, Advanced $199/mo) and Enterprise metered billing ($499/mo minimum). Runs completely offline with no API key, returning recommendedPlan, monthlyUsd, annualUsd, effectiveCostPerTicketUsd, and competitor savings.",
+    annotations: {
+      title: "Calculate Support TCO",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        monthlyTickets: { type: "number", description: "Total monthly customer support inquiries" },
-        aiResolutionRate: { type: "number", description: "Fraction resolved by AI (0.0 to 1.0, default 0.65)" },
-        avgMessagesPerTicket: { type: "number", description: "Average AI messages per inquiry (default 4)" },
-        monthlyVoiceMinutes: { type: "number", description: "Monthly AI phone voice minutes (default 0)" },
-        teamSeats: { type: "number", description: "Number of staff seats required (default 3)" },
-        intercomPerResolutionUsd: { type: "number" },
-        intercomSeatUsd: { type: "number" },
-        gorgiasPerAutomatedUsd: { type: "number" },
-        gorgiasBaseMonthlyUsd: { type: "number" },
-        zendeskSeatUsd: { type: "number" },
-        zendeskAutomatedResolutionUsd: { type: "number" }
+        monthlyTickets: {
+          type: "number",
+          minimum: 0,
+          description: "Total monthly customer support tickets or inquiries across all messaging channels."
+        },
+        aiResolutionRate: {
+          type: "number",
+          minimum: 0,
+          maximum: 1,
+          default: 0.65,
+          description: "Expected fraction of monthlyTickets resolved autonomously by AI (from 0.0 to 1.0, default 0.65)."
+        },
+        avgMessagesPerTicket: {
+          type: "number",
+          minimum: 1,
+          default: 4,
+          description: "Average AI messages exchanged per customer ticket (default 4)."
+        },
+        monthlyVoiceMinutes: {
+          type: "number",
+          minimum: 0,
+          default: 0,
+          description: "Expected monthly inbound/outbound AI phone voice minutes (default 0)."
+        },
+        teamSeats: {
+          type: "number",
+          minimum: 1,
+          default: 3,
+          description: "Number of human support team seats required (default 3)."
+        },
+        intercomPerResolutionUsd: {
+          type: "number",
+          minimum: 0,
+          default: 0.99,
+          description: "Intercom Fin fee per resolved conversation in USD (default 0.99)."
+        },
+        intercomSeatUsd: {
+          type: "number",
+          minimum: 0,
+          default: 29,
+          description: "Intercom monthly price per agent seat in USD (default 29)."
+        },
+        gorgiasPerAutomatedUsd: {
+          type: "number",
+          minimum: 0,
+          default: 0.95,
+          description: "Gorgias AI fee per automated ticket resolution in USD (default 0.95)."
+        },
+        gorgiasBaseMonthlyUsd: {
+          type: "number",
+          minimum: 0,
+          default: 60,
+          description: "Gorgias base monthly helpdesk subscription in USD (default 60)."
+        },
+        zendeskSeatUsd: {
+          type: "number",
+          minimum: 0,
+          default: 55,
+          description: "Zendesk Suite monthly price per agent seat in USD (default 55)."
+        },
+        zendeskAutomatedResolutionUsd: {
+          type: "number",
+          minimum: 0,
+          default: 1.5,
+          description: "Zendesk AI add-on fee per automated resolution in USD (default 1.50)."
+        }
       },
       required: ["monthlyTickets"]
     }
   },
   {
     name: "octadezx_list_conversations",
-    description: "[Cloud / Requires OCTADEZX_API_KEY] List live recent or escalated customer conversations across WhatsApp, Instagram, Messenger, Telegram, phone voice, and web chat.",
+    description:
+      "Retrieve recent or escalated customer conversations from your connected OctaDezx Cloud workspace across WhatsApp, Instagram, Facebook Messenger, Telegram, Phone Voice, and Web Widget. Use when triaging open support queues or fetching thread IDs before replying. Requires OCTADEZX_API_KEY in the environment; if unset, returns a structured 'requires_api_key' guidance payload instead of failing silently.",
+    annotations: {
+      title: "List Workspace Conversations",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        status: { type: "string", enum: ["open", "escalated", "all"], description: "Filter by conversation status" },
-        limit: { type: "number", description: "Maximum conversations to return (default 10)" }
+        status: {
+          type: "string",
+          enum: ["open", "escalated", "all"],
+          default: "all",
+          description: "Filter workspace conversations by triage state ('open', 'escalated', or 'all')."
+        },
+        limit: {
+          type: "number",
+          minimum: 1,
+          maximum: 100,
+          default: 10,
+          description: "Maximum number of conversation threads to return (1 to 100, default 10)."
+        }
       }
     }
   },
   {
     name: "octadezx_send_customer_reply",
-    description: "[Cloud / Requires OCTADEZX_API_KEY] Send a verified customer care response into a live customer conversation thread.",
+    description:
+      "Deliver a verified customer care reply into an active OctaDezx Cloud conversation thread across its originating channel (WhatsApp, Instagram, Messenger, Telegram, or Web Widget). Best paired with verify_reply_safety prior to sending. Requires OCTADEZX_API_KEY; returns a structured 'requires_api_key' error payload when unauthenticated.",
+    annotations: {
+      title: "Send Customer Reply",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        conversationId: { type: "string", description: "The customer conversation ID" },
-        message: { type: "string", description: "Verified message text to deliver" }
+        conversationId: {
+          type: "string",
+          minLength: 1,
+          description: "Unique identifier of the target OctaDezx customer conversation thread."
+        },
+        message: {
+          type: "string",
+          minLength: 1,
+          maxLength: 4000,
+          description: "Final verified reply text to send to the customer (up to 4,000 characters)."
+        }
       },
       required: ["conversationId", "message"]
     }
   },
   {
     name: "octadezx_verify_order",
-    description: "[Cloud / Requires OCTADEZX_API_KEY] Look up and verify live order status and pricing against connected storefront catalog records.",
+    description:
+      "Look up authoritative live order fulfillment status, line items, and verified totals in your connected OctaDezx storefront integration (Shopify or WooCommerce). Use before promising refunds, answering WISMO questions, or citing order amounts. Requires OCTADEZX_API_KEY; returns a structured 'requires_api_key' error payload if unconfigured.",
+    annotations: {
+      title: "Verify Workspace Order",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        orderId: { type: "string", description: "Order ID or verified customer phone number" }
+        orderId: {
+          type: "string",
+          minLength: 1,
+          description: "Storefront order ID (for example, 'OD-1042' or '#1042') or verified customer phone number."
+        }
       },
       required: ["orderId"]
     }
   },
   {
     name: "octadezx_schedule_appointment",
-    description: "[Cloud / Requires OCTADEZX_API_KEY] File an appointment booking request and check Google Calendar availability in your OctaDezx workspace.",
+    description:
+      "Create an appointment booking request and check Google Calendar staff busy-time availability in your OctaDezx Cloud workspace. Use after confirming service type, customer name, and callback phone number. Requires OCTADEZX_API_KEY; returns a structured 'requires_api_key' error payload when no API key is configured.",
+    annotations: {
+      title: "Schedule Workspace Appointment",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        customerName: { type: "string", description: "Customer full name" },
-        phone: { type: "string", description: "Contact phone number" },
-        service: { type: "string", description: "Requested service or treatment" },
-        datetime: { type: "string", description: "Preferred ISO datetime" }
+        customerName: {
+          type: "string",
+          minLength: 1,
+          description: "Full name of the customer requesting the appointment."
+        },
+        phone: {
+          type: "string",
+          minLength: 5,
+          description: "Customer contact phone number for SMS/WhatsApp/voice booking confirmation."
+        },
+        service: {
+          type: "string",
+          minLength: 1,
+          description: "Name of the requested service, consultation, or salon/clinic treatment."
+        },
+        datetime: {
+          type: "string",
+          description: "Optional preferred appointment start date and time in ISO 8601 format (for example, '2026-11-18T14:30:00Z')."
+        }
       },
       required: ["customerName", "phone", "service"]
     }
   },
   {
     name: "octadezx_trigger_voice_call",
-    description: "[Cloud / Requires OCTADEZX_API_KEY] Initiate an outbound conversational AI phone reminder or support call with live human barge-in.",
+    description:
+      "Initiate an outbound conversational AI phone reminder or support follow-up call from your OctaDezx Cloud workspace with real-time human barge-in support. Only invoke after verifying consent and call purpose. Requires OCTADEZX_API_KEY; returns a structured 'requires_api_key' error payload when unauthenticated.",
+    annotations: {
+      title: "Trigger AI Voice Call",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
+      additionalProperties: false,
       properties: {
-        phoneNumber: { type: "string", description: "Destination phone number in E.164 format" },
-        reason: { type: "string", description: "Specific reason or context for the call" }
+        phoneNumber: {
+          type: "string",
+          pattern: "^\\+[1-9]\\d{6,14}$",
+          description: "Destination phone number in strict E.164 international format (for example, '+14155550199')."
+        },
+        reason: {
+          type: "string",
+          minLength: 3,
+          maxLength: 500,
+          description: "Concise, specific purpose or context brief for the AI voice agent call (3 to 500 characters)."
+        }
       },
       required: ["phoneNumber", "reason"]
     }
